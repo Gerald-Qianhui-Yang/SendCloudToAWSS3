@@ -60,7 +60,7 @@ def handle_email_webhook():
 
         # Upload webhook payload to S3 for audit trail
         s3_key = f"webhooks/sendcloud/email/{event}/{timestamp}_{token}.json"
-        s3_manager.upload_json(data, s3_key)
+        # s3_manager.upload_json(data, s3_key)
 
         # Process based on event type
         if event == 'request':

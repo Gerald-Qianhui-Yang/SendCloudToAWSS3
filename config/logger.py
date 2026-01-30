@@ -1,4 +1,5 @@
 import logging
+import sys
 from logging.handlers import RotatingFileHandler
 import os
 
@@ -24,6 +25,7 @@ def setup_logger(name, log_file='logs/app.log'):
         return logger
 
     logger.setLevel(logging.INFO)
+    logger.propagate = False  # Prevent propagation to parent loggers
 
     # Create rotating file handler (10MB per file, 10 backups)
     handler = RotatingFileHandler(log_file, maxBytes=10485760, backupCount=10)
@@ -36,5 +38,8 @@ def setup_logger(name, log_file='logs/app.log'):
 
     # Add handler to logger
     logger.addHandler(handler)
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setFormatter(formatter)
+    logger.addHandler(stream_handler)
 
     return logger

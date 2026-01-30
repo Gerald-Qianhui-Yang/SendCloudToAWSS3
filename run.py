@@ -11,7 +11,7 @@ def main():
     """Start the Flask application"""
     try:
         # Get environment configuration
-        env = os.getenv('FLASK_ENV', 'development')
+        env = os.getenv('FLASK_ENV', 'production')
         host = os.getenv('FLASK_HOST', '0.0.0.0')
         port = int(os.getenv('FLASK_PORT', 5000))
         debug = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
