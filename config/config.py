@@ -12,11 +12,8 @@ class Config:
     # SendCloud Configuration
     SENDCLOUD_APP_KEY = os.getenv('SENDCLOUD_APP_KEY', '')
 
-    # AWS Configuration
-    AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
-    AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
-    AWS_REGION = os.getenv('AWS_REGION', 'us-east-1')
-    AWS_S3_BUCKET = os.getenv('AWS_S3_BUCKET')
+    # Third-party logging (Logtail / Better Stack)
+    LOGTAIL_SOURCE_TOKEN = os.getenv('LOGTAIL_SOURCE_TOKEN', '')
 
 class DevelopmentConfig(Config):
     """Development configuration"""

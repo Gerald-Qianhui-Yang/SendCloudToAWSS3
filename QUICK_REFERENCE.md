@@ -10,9 +10,7 @@
 2. **Update `.env` with your values**
    ```env
    SENDCLOUD_APP_KEY=your_app_key_from_sendcloud
-   AWS_ACCESS_KEY_ID=your_aws_key
-   AWS_SECRET_ACCESS_KEY=your_aws_secret
-   AWS_S3_BUCKET=your-bucket-name
+   LOGTAIL_SOURCE_TOKEN=your_logtail_source_token
    ```
 
 3. **Install dependencies**
@@ -22,7 +20,7 @@
 
 4. **Start application**
    ```bash
-   python run.py
+   python3 run.py
    ```
 
 5. **Configure in SendCloud**
@@ -128,14 +126,14 @@ def process_deliver_event(data):
 ## View Logs
 
 ```bash
-# Real-time logs
+# Real-time local logs
 tail -f logs/app.log
 
 # Filter by event type
 grep "deliver" logs/app.log
 
-# Check S3 storage
-aws s3 ls s3://your-bucket/webhooks/sendcloud/email/ --recursive
+# View structured logs online
+# Visit: https://logs.betterstack.com
 ```
 
 ---
@@ -146,9 +144,9 @@ aws s3 ls s3://your-bucket/webhooks/sendcloud/email/ --recursive
 - `app/__init__.py` - Flask app setup
 - `app/webhook_routes.py` - Webhook handler (edit for custom logic)
 - `app/webhook_validator.py` - Signature verification
-- `app/s3_manager.py` - AWS S3 operations
+- `app/log_forwarder.py` - Logtail / Better Stack log forwarding
 - `config/config.py` - Environment configuration
-- `config/logger.py` - Logging setup
+- `config/logger.py` - Local logging setup
 
 ---
 
@@ -157,29 +155,32 @@ aws s3 ls s3://your-bucket/webhooks/sendcloud/email/ --recursive
 | Variable | Description | Required |
 |----------|-------------|----------|
 | `SENDCLOUD_APP_KEY` | SendCloud APP KEY | Yes* |
-| `AWS_ACCESS_KEY_ID` | AWS credentials | Yes |
-| `AWS_SECRET_ACCESS_KEY` | AWS credentials | Yes |
-| `AWS_S3_BUCKET` | S3 bucket name | Yes |
-| `AWS_REGION` | AWS region | No (default: us-east-1) |
+| `LOGTAIL_SOURCE_TOKEN` | Logtail / Better Stack source token | Yes |
 | `FLASK_ENV` | Environment (development/production) | No |
 | `FLASK_HOST` | Server host | No (default: 0.0.0.0) |
 | `FLASK_PORT` | Server port | No (default: 5000) |
 | `FLASK_DEBUG` | Debug mode | No (default: False) |
 
-*Optional - but recommended for security
+*Optional — but recommended for security
 
 ---
 
-## S3 Storage Path
+## Log Forwarding
 
-```
-s3://your-bucket/webhooks/sendcloud/email/{event}/{timestamp}_{token}.json
+Every webhook event is forwarded to Logtail as a structured JSON entry:
+
+```json
+{
+  "message": "SendCloud webhook event: deliver",
+  "event": "deliver",
+  "email": "recipient@example.com",
+  "token": "xxxxx",
+  "timestamp": "1234567890",
+  "data": { ... }
+}
 ```
 
-Example:
-```
-s3://my-bucket/webhooks/sendcloud/email/deliver/1234567890_token123.json
-```
+View logs at: **https://logs.betterstack.com**
 
 ---
 
@@ -189,9 +190,9 @@ s3://my-bucket/webhooks/sendcloud/email/deliver/1234567890_token123.json
 |-------|----------|
 | 404 when accessing endpoint | Ensure application is running |
 | Signature verification failures | Check `SENDCLOUD_APP_KEY` matches dashboard |
-| S3 upload errors | Verify AWS credentials and bucket name |
+| Log forwarding errors | Verify `LOGTAIL_SOURCE_TOKEN` and network access |
 | Slow responses | Check server resources, optimize processing |
-| No logs generated | Ensure `logs/` directory is writable |
+| No local logs generated | Ensure `logs/` directory is writable |
 
 ---
 
@@ -200,7 +201,7 @@ s3://my-bucket/webhooks/sendcloud/email/deliver/1234567890_token123.json
 ```bash
 # Using Gunicorn
 pip install gunicorn
-gunicorn -w 4 -b 0.0.0.0:5000 app:create_app
+gunicorn -w 4 -b 0.0.0.0:5000 'app:create_app()'
 
 # Environment
 export FLASK_ENV=production
@@ -212,10 +213,11 @@ export FLASK_DEBUG=False
 ## Security Checklist
 
 - [ ] `SENDCLOUD_APP_KEY` is set
+- [ ] `LOGTAIL_SOURCE_TOKEN` is set
 - [ ] `.env` file is not in git (add to `.gitignore`)
 - [ ] Use HTTPS in production
-- [ ] AWS credentials rotated regularly
-- [ ] S3 bucket has restricted access
+- [ ] Logtail source token is kept secret
+- [ ] Use separate Logtail sources for dev and production
 - [ ] Check logs regularly
 - [ ] Monitor failed webhook attempts
 
@@ -225,19 +227,17 @@ export FLASK_DEBUG=False
 
 ```bash
 # Start application
-python run.py
+python3 run.py
 
 # Check health
 curl http://localhost:5000/health
 
-# View logs
+# View local logs
 tail -f logs/app.log
 
 # Test webhook
-curl -X POST http://localhost:5000/webhook/sendcloud/email -d "event=test&..."
-
-# Check S3
-aws s3 ls s3://your-bucket/webhooks/sendcloud/email/ --recursive
+curl -X POST http://localhost:5000/webhook/sendcloud/email \
+  -d "event=deliver&token=test&timestamp=$(date +%s)&signature=test&email=user@example.com"
 
 # Install/update dependencies
 pip install -r requirements.txt
@@ -249,14 +249,14 @@ pip install -r requirements.txt
 
 - **README.md** - Full project documentation
 - **WEBHOOK_GUIDE.md** - Detailed testing and configuration guide
-- **CORRECTIONS_SUMMARY.md** - Summary of changes made
+- **DEPLOYMENT.md** - Production deployment guide
 
 ---
 
 ## Support
 
-1. Check application logs: `logs/app.log`
+1. Check local application logs: `logs/app.log`
 2. Review `WEBHOOK_GUIDE.md` troubleshooting section
 3. Verify SendCloud webhook delivery logs in dashboard
-4. Test with curl command
-5. Use Python test script in `WEBHOOK_GUIDE.md`
+4. Check Logtail dashboard for forwarded events
+5. Test with curl command above

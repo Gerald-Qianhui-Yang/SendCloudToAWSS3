@@ -1,12 +1,12 @@
 from flask import Blueprint, request
 from app.webhook_validator import SendCloudWebhookValidator
-from app.s3_manager import S3Manager
+from app.log_forwarder import LogForwarder
 from config.logger import setup_logger
 import os
 
 webhook_bp = Blueprint('webhook', __name__, url_prefix='/webhook')
 logger = setup_logger(__name__)
-s3_manager = S3Manager()
+log_forwarder = LogForwarder()
 
 @webhook_bp.route('/sendcloud/email', methods=['GET', 'POST'])
 def handle_email_webhook():
@@ -58,9 +58,8 @@ def handle_email_webhook():
 
         logger.info(f"Received SendCloud email webhook: {event}")
 
-        # Upload webhook payload to S3 for audit trail
-        s3_key = f"webhooks/sendcloud/email/{event}/{timestamp}_{token}.json"
-        # s3_manager.upload_json(data, s3_key)
+        # Forward webhook payload to third-party logging service for audit trail
+        log_forwarder.forward(event, data)
 
         # Process based on event type
         if event == 'request':

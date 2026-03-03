@@ -18,18 +18,18 @@ This guide covers deploying the SendCloud Email Webhook application to productio
 - [ ] Webhook URL is configured in SendCloud
 - [ ] Test events have been sent and received
 
-### AWS Configuration
-- [ ] AWS S3 bucket exists
-- [ ] IAM user has S3 permissions
-- [ ] AWS credentials are generated (not using root account)
-- [ ] S3 bucket versioning is enabled (recommended)
-- [ ] S3 bucket encryption is configured (recommended)
+### Logtail / Better Stack Configuration
+- [ ] Logtail account is active at https://logs.betterstack.com
+- [ ] A production Logtail source has been created (type: HTTP)
+- [ ] `LOGTAIL_SOURCE_TOKEN` has been obtained from the source settings
+- [ ] A separate source exists for development vs production (recommended)
 
 ### Infrastructure
 - [ ] Production server/hosting is ready
 - [ ] HTTPS/SSL certificate is installed
 - [ ] Domain name is configured
 - [ ] Firewall allows inbound traffic on port 443
+- [ ] Firewall allows outbound traffic on port 443 (required for Logtail)
 - [ ] Server has Python 3.7+ installed
 
 ---
@@ -91,22 +91,12 @@ FLASK_HOST=127.0.0.1
 FLASK_PORT=5000
 FLASK_DEBUG=False
 
-# Application Secret (generate a strong random key)
-SECRET_KEY=generate-a-strong-random-key-here
-
 # SendCloud Configuration
-SENDCLOUD_APP_KEY=your_production_app_key
+SENDCLOUD_APP_KEY=your_production_sendcloud_app_key
 
-# AWS Configuration
-AWS_ACCESS_KEY_ID=your_production_aws_key
-AWS_SECRET_ACCESS_KEY=your_production_aws_secret
-AWS_REGION=us-east-1
-AWS_S3_BUCKET=your-production-bucket-name
-```
-
-Generate a strong SECRET_KEY:
-```bash
-python3 -c "import secrets; print(secrets.token_hex(32))"
+# Third-party Logging (Logtail / Better Stack)
+# Get your source token from: https://logs.betterstack.com -> Sources
+LOGTAIL_SOURCE_TOKEN=your_production_logtail_source_token
 ```
 
 ### Step 4: Setup Systemd Service
@@ -267,7 +257,7 @@ sudo systemctl status sendcloud-webhook
 # Test endpoint
 curl https://your-domain.com/health
 
-# Check logs
+# Check local logs
 tail -f /var/www/sendcloud-webhook/logs/app.log
 sudo tail -f /var/log/nginx/sendcloud-webhook-access.log
 ```
@@ -288,18 +278,18 @@ sudo tail -f /var/log/nginx/sendcloud-webhook-access.log
 ### Test Webhook Delivery
 
 1. Send a test email through SendCloud
-2. Check application logs for webhook events
-3. Verify data is stored in S3
-4. Confirm emails are being tracked
+2. Check local application logs for webhook events: `tail -f /var/www/sendcloud-webhook/logs/app.log`
+3. Verify log entries appear in your Logtail dashboard at https://logs.betterstack.com
+4. Confirm events are being tracked correctly
 
 ### Monitor Application
 
 ```bash
-# Monitor logs in real-time
+# Monitor local logs in real-time
 tail -f /var/www/sendcloud-webhook/logs/app.log
 
-# Check S3 stored webhooks
-aws s3 ls s3://your-bucket/webhooks/sendcloud/email/ --recursive
+# View structured logs in Logtail
+# https://logs.betterstack.com
 
 # Monitor Nginx
 tail -f /var/log/nginx/sendcloud-webhook-access.log
@@ -321,14 +311,6 @@ cp /var/www/sendcloud-webhook/.env .env.backup
 chmod 600 .env.backup
 ```
 
-### Backup S3
-
-```bash
-# Backup S3 bucket
-aws s3 sync s3://your-bucket/webhooks/sendcloud/email/ \
-    ./local-backup/webhooks/sendcloud/email/
-```
-
 ### Recovery Steps
 
 ```bash
@@ -337,7 +319,7 @@ sudo systemctl stop sendcloud-webhook
 
 # Restore files
 cd /var/www/sendcloud-webhook
-tar -xzf sendcloud-webhook-backup-20240120.tar.gz
+tar -xzf sendcloud-webhook-backup-20260303.tar.gz
 
 # Restart service
 sudo systemctl start sendcloud-webhook
@@ -353,14 +335,24 @@ sudo systemctl status sendcloud-webhook
 ### Setup Log Monitoring
 
 ```bash
-# Monitor errors
+# Monitor errors locally
 sudo tail -f /var/log/sendcloud-webhook/error.log
 
-# Count webhook events
-tail -f /var/www/sendcloud-webhook/logs/app.log | grep "Received SendCloud"
+# Count webhook events received
+grep "Received SendCloud" /var/www/sendcloud-webhook/logs/app.log | wc -l
+
+# Monitor log forwarding failures
+grep "Failed to forward" /var/www/sendcloud-webhook/logs/app.log
 ```
 
-### Setup Email Alerts
+### Logtail Alerts
+
+Set up automated alerts directly in the Logtail / Better Stack dashboard:
+1. Go to https://logs.betterstack.com → **Alerts**
+2. Create an alert for log entries matching `"Failed to forward"` or `"ERROR"`
+3. Configure notification channels (email, Slack, PagerDuty, etc.)
+
+### Setup Local Email Alerts (Optional)
 
 Install `mail-utils`:
 
@@ -419,17 +411,11 @@ ExecStart=/var/www/sendcloud-webhook/venv/bin/gunicorn \
     ...
 ```
 
-### S3 Performance
+### Log Forwarding
 
-Consider enabling S3 Transfer Acceleration:
+The `LogForwarder` uses a synchronous HTTP POST with a 5-second timeout. For very high webhook volumes, consider moving log forwarding to a background thread or task queue (e.g. Celery) to reduce per-request latency.
 
-```bash
-aws s3api put-bucket-accelerate-configuration \
-    --bucket your-bucket-name \
-    --accelerate-configuration Status=Enabled
-```
-
-### Database Indexing (if using database)
+### Database Indexing (if adding database storage)
 
 If you add database storage, create indexes on:
 - `event` - for filtering by event type
@@ -449,7 +435,7 @@ sudo ufw default allow outgoing
 sudo ufw allow 22/tcp      # SSH
 sudo ufw allow 80/tcp      # HTTP
 sudo ufw allow 443/tcp     # HTTPS
-sudo ufw allow out 443/tcp # HTTPS for AWS
+sudo ufw allow out 443/tcp # HTTPS for Logtail
 ```
 
 ### File Permissions
@@ -497,9 +483,9 @@ curl https://your-domain.com/health
 ## Maintenance Schedule
 
 ### Daily
-- Monitor error logs
-- Check webhook delivery rate
-- Verify S3 storage
+- Monitor local error logs
+- Check Logtail dashboard for anomalies
+- Verify webhook delivery rate in SendCloud dashboard
 
 ### Weekly
 - Review application performance
@@ -507,14 +493,15 @@ curl https://your-domain.com/health
 - Audit access logs
 
 ### Monthly
-- Backup critical data
-- Review and rotate logs
-- Update dependencies
+- Backup application code and `.env`
+- Review and rotate local logs
+- Update Python dependencies: `pip install -r requirements.txt --upgrade`
 - Security audit
 
 ### Quarterly
 - Full disaster recovery test
 - Performance optimization review
+- Rotate `SENDCLOUD_APP_KEY` and `LOGTAIL_SOURCE_TOKEN`
 - Security patches update
 
 ---
@@ -554,6 +541,19 @@ tail -f /var/log/nginx/sendcloud-webhook-error.log
 curl -v https://your-domain.com/webhook/sendcloud/email
 ```
 
+### Log entries not appearing in Logtail
+
+```bash
+# Check for forwarding errors in local logs
+grep "Logtail" /var/www/sendcloud-webhook/logs/app.log
+
+# Verify outbound HTTPS is allowed
+curl -v https://in.logs.betterstack.com
+
+# Check LOGTAIL_SOURCE_TOKEN is set
+grep LOGTAIL /var/www/sendcloud-webhook/.env
+```
+
 ---
 
 ## Support and Documentation
@@ -562,4 +562,5 @@ curl -v https://your-domain.com/webhook/sendcloud/email
 - **Health Check**: https://your-domain.com/health
 - **Application Logs**: /var/www/sendcloud-webhook/logs/app.log
 - **Nginx Logs**: /var/log/nginx/sendcloud-webhook-*.log
-- **Service Logs**: journalctl -u sendcloud-webhook
+- **Service Logs**: `journalctl -u sendcloud-webhook`
+- **Logtail Dashboard**: https://logs.betterstack.com

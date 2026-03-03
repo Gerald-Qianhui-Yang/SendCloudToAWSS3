@@ -20,15 +20,23 @@ This guide explains how to configure, test, and troubleshoot SendCloud email web
 3. Look for **APP KEY** in the configuration section
 4. Copy the APP KEY
 
-### Step 2: Configure Application
+### Step 2: Get Logtail Source Token
+
+1. Sign up or log in at https://logs.betterstack.com
+2. Go to **Logs → Sources → Create source**
+3. Choose **HTTP** as the platform
+4. Copy the **Source Token**
+
+### Step 3: Configure Application
 
 Update your `.env` file:
 
 ```env
 SENDCLOUD_APP_KEY=your_app_key_from_sendcloud
+LOGTAIL_SOURCE_TOKEN=your_logtail_source_token
 ```
 
-### Step 3: Configure Webhook in SendCloud Dashboard
+### Step 4: Configure Webhook in SendCloud Dashboard
 
 1. In SendCloud Dashboard: **Mail → Send Settings → WebHook**
 2. Set webhook URL to your server: `http://your-domain.com/webhook/sendcloud/email`
@@ -44,7 +52,7 @@ SENDCLOUD_APP_KEY=your_app_key_from_sendcloud
    - ☐ route (转信)
 4. Save configuration
 
-### Step 4: Test URL Verification
+### Step 5: Test URL Verification
 
 SendCloud will verify your webhook URL by sending a GET request. The application automatically responds with HTTP 200.
 
@@ -128,7 +136,6 @@ Create a test script `test_webhook.py`:
 import requests
 import hashlib
 import time
-import json
 
 # Configuration
 BASE_URL = "http://localhost:5000"
@@ -220,11 +227,7 @@ if __name__ == '__main__':
 Run the test:
 
 ```bash
-# Install requests if not already installed
-pip install requests
-
-# Run test
-python test_webhook.py
+python3 test_webhook.py
 ```
 
 Expected output:
@@ -252,17 +255,19 @@ click: ✓ PASSED
 unsubscribe: ✓ PASSED
 ```
 
-Check application logs:
+Check local application logs:
 ```bash
 tail -f logs/app.log
 ```
 
 You should see entries like:
 ```
-2024-01-20 12:30:45,123 - app.webhook_routes - INFO - Received SendCloud email webhook: deliver
-2024-01-20 12:30:45,234 - app.s3_manager - INFO - JSON uploaded to S3: s3://your-bucket/webhooks/sendcloud/email/deliver/1234567890_test_token_12345.json
-2024-01-20 12:30:45,235 - app.webhook_routes - INFO - Processing deliver event: recipient@example.com
+2026-03-03 12:30:45,123 - app.webhook_routes - INFO - Received SendCloud email webhook: deliver
+2026-03-03 12:30:45,234 - app.log_forwarder - INFO - Log forwarded to Logtail: event=deliver
+2026-03-03 12:30:45,235 - app.webhook_routes - INFO - Processing deliver event: recipient@example.com
 ```
+
+You can also verify the forwarded log entries in your Logtail dashboard at https://logs.betterstack.com.
 
 ### Test 3: Invalid Signature Test
 
@@ -275,7 +280,7 @@ curl -X POST http://localhost:5000/webhook/sendcloud/email \
 
 Expected behavior:
 - HTTP 200 response (to prevent SendCloud retries)
-- Warning logged: "Invalid webhook signature for event: deliver"
+- Warning logged: `"Invalid webhook signature for event: deliver"`
 
 ---
 
@@ -309,37 +314,27 @@ Expected behavior:
 ### Issue: Signature verification failures
 
 **Symptoms:**
-- Logs show: "Invalid webhook signature for event"
+- Logs show: `"Invalid webhook signature for event"`
 - All webhooks are received but marked as invalid
 
 **Solution:**
 1. Verify `SENDCLOUD_APP_KEY` in `.env` matches SendCloud dashboard
 2. Check if APP_KEY was recently rotated in SendCloud
-3. Verify signature calculation formula: SHA256(APP_KEY + token + timestamp)
+3. Verify signature calculation formula: `SHA256(APP_KEY + token + timestamp)`
 4. Check for whitespace or encoding issues in APP_KEY
 
-### Issue: S3 upload failures
+### Issue: Log forwarding failures
 
 **Symptoms:**
-- Logs show: "S3 JSON upload failed"
-- Webhooks are received but data not stored
+- Logs show: `"Logtail rejected log entry"` or `"Failed to forward log to Logtail"`
+- Webhooks are received and processed, but entries don't appear in Logtail
 
 **Solution:**
-1. Verify AWS credentials in `.env` file
-2. Check S3 bucket exists and is accessible
-3. Verify IAM permissions for the AWS user:
-   ```json
-   {
-     "Effect": "Allow",
-     "Action": [
-       "s3:PutObject",
-       "s3:GetObject"
-     ],
-     "Resource": "arn:aws:s3:::your-bucket-name/*"
-   }
-   ```
-4. Check network connectivity to AWS
-5. Verify S3 bucket name is correct
+1. Verify `LOGTAIL_SOURCE_TOKEN` in `.env` is correct
+2. Confirm the Logtail source is active at https://logs.betterstack.com
+3. Check network connectivity to `https://in.logs.betterstack.com`
+4. Ensure outbound HTTPS (port 443) is allowed by your firewall
+5. Check local `logs/app.log` for detailed error messages
 
 ### Issue: Slow webhook processing
 
@@ -348,11 +343,10 @@ Expected behavior:
 - SendCloud reports webhook failures
 
 **Solution:**
-1. Optimize S3 upload operations (consider async)
-2. Profile application: `python -m cProfile run.py`
-3. Check server resources (CPU, memory)
-4. Reduce processing in event handlers
-5. Consider using a task queue for heavy operations
+1. Log forwarding has a 5-second timeout and is non-blocking — it won't prevent HTTP 200 from being returned
+2. Profile application: check server CPU and memory
+3. Reduce processing in event handler functions
+4. Consider using a task queue for any heavy background operations
 
 ---
 
@@ -474,7 +468,7 @@ Expected behavior:
 
 ## Monitoring and Logs
 
-### View Real-time Logs
+### View Real-time Local Logs
 
 ```bash
 tail -f logs/app.log
@@ -488,19 +482,37 @@ grep "open" logs/app.log
 grep "click" logs/app.log
 ```
 
-### Check S3 Stored Webhooks
+### View Structured Logs in Logtail
 
-```bash
-# Using AWS CLI
-aws s3 ls s3://your-bucket/webhooks/sendcloud/email/ --recursive
+1. Visit https://logs.betterstack.com
+2. Select your source
+3. Use the search bar to filter by `event`, `email`, or any field
+4. Set time range to find recent webhook events
+
+### Sample Log Output (local)
+
+```
+2026-03-03 12:30:45,123 - app.webhook_routes - INFO - Received SendCloud email webhook: deliver
+2026-03-03 12:30:45,234 - app.log_forwarder - INFO - Log forwarded to Logtail: event=deliver
+2026-03-03 12:30:45,235 - app.webhook_routes - INFO - Processing deliver event: user@example.com
 ```
 
-### Sample Log Output
+### Forwarded Log Entry (Logtail / Better Stack)
 
-```
-2024-01-20 12:30:45,123 - app.webhook_routes - INFO - Received SendCloud email webhook: deliver
-2024-01-20 12:30:45,234 - app.s3_manager - INFO - JSON uploaded to S3: s3://bucket/webhooks/sendcloud/email/deliver/1234567890_token123.json
-2024-01-20 12:30:45,235 - app.webhook_routes - INFO - Processing deliver event: user@example.com
+```json
+{
+  "message": "SendCloud webhook event: deliver",
+  "event": "deliver",
+  "email": "user@example.com",
+  "token": "xxxxx",
+  "timestamp": "1234567890",
+  "data": {
+    "event": "deliver",
+    "email": "user@example.com",
+    "mailfrom": "sender@example.com",
+    "subject": "Test Email"
+  }
+}
 ```
 
 ---
@@ -508,8 +520,8 @@ aws s3 ls s3://your-bucket/webhooks/sendcloud/email/ --recursive
 ## Performance Considerations
 
 - **Response Time**: Application responds within 3 seconds as required
-- **S3 Operations**: Async operations recommended for high volume
-- **Logging**: Rotating file handler prevents disk space issues
+- **Log Forwarding Timeout**: 5-second timeout on Logtail requests; failures are caught and logged locally without blocking the response
+- **Local Logging**: Rotating file handler prevents disk space issues
 - **Rate Limiting**: Consider implementing rate limiting for production
 
 ---
@@ -518,9 +530,9 @@ aws s3 ls s3://your-bucket/webhooks/sendcloud/email/ --recursive
 
 ✓ Verify webhook signatures
 ✓ Use HTTPS in production
-✓ Store APP_KEY securely in environment variables
+✓ Store APP_KEY and LOGTAIL_SOURCE_TOKEN securely in environment variables
 ✓ Never commit `.env` file to version control
-✓ Restrict S3 bucket access with IAM policies
-✓ Enable S3 bucket versioning and encryption
+✓ Rotate LOGTAIL_SOURCE_TOKEN if compromised
+✓ Use separate Logtail sources for development and production
 ✓ Monitor logs for suspicious activity
 ✓ Rotate APP_KEY periodically
