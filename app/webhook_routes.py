@@ -3,9 +3,12 @@ from app.webhook_validator import SendCloudWebhookValidator
 from app.log_forwarder import LogForwarder
 from config.logger import setup_logger
 import os
+import time
 
 webhook_bp = Blueprint('webhook', __name__, url_prefix='/webhook')
-logger = setup_logger(__name__)
+# Use CFC SOC format for webhook logs
+logger = setup_logger(__name__, log_file='logs/webhook.log',
+                     log_type="[Webhook]", use_soc_format=True)
 log_forwarder = LogForwarder()
 
 @webhook_bp.route('/sendcloud/email', methods=['GET', 'POST'])
@@ -22,7 +25,7 @@ def handle_email_webhook():
     try:
         # Handle GET requests for URL verification
         if request.method == 'GET':
-            logger.info("Received webhook GET request for URL verification")
+            logger.info(f"GET request from {request.remote_addr} for URL verification")
             return '', 200
 
         # Parse form data (application/x-www-form-urlencoded)
@@ -85,7 +88,7 @@ def handle_email_webhook():
         return '', 200
 
     except Exception as e:
-        logger.error(f"Webhook processing error: {str(e)}", exc_info=True)
+        logger.error(f"Webhook processing error from {request.remote_addr}: {str(e)}", exc_info=True)
         # Return 200 anyway to prevent SendCloud retry (fix error and check logs)
         return '', 200
 

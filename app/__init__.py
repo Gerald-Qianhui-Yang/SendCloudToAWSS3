@@ -4,7 +4,7 @@ from config.config import config
 from app.webhook_routes import webhook_bp
 from config.logger import setup_logger
 
-logger = setup_logger(__name__)
+logger = setup_logger(__name__, log_type="[Application]", use_soc_format=True)
 
 def create_app(config_name='development'):
     """Application factory for creating Flask app instances"""
