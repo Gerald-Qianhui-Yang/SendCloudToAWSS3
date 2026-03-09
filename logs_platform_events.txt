@@ -1,0 +1,3 @@
+2026-03-09 17:43:39.184 [AUDIT] [Platform] CFC infrastructure admin@lilly.com 192.168.1.1 CloudTrail CreateBucket arn:aws:s3:::cfc-new-bucket SUCCESS 
+2026-03-09 17:44:09.184 [AUDIT] [Platform] CFC infrastructure system 192.168.1.100 GuardDuty UnauthorizedAccess i-0123456789abcdef0 SUCCESS Suspicious login attempts detected
+2026-03-09 17:44:39.184 [AUDIT] [Platform] CFC infrastructure automation@lilly.com 192.168.1.50 Config ConfigurationChange sg-12345678 SUCCESS Security group rule added

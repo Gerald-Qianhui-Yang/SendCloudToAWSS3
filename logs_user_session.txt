@@ -1,0 +1,7 @@
+2026-03-09 17:43:39.183 [AUDIT] [Login] CFC patient-portal doctor@lilly.com 203.0.113.88 Azure_AD SUCCESS  sess-20260309174339
+2026-03-09 17:43:44.183 [AUDIT] [API] CFC patient-portal OUTBOUND getPatientList v1 GET /api/v1/patients doctor@lilly.com 203.0.113.88 data-service 200 SUCCESS 256 512 120 
+2026-03-09 17:43:54.183 [AUDIT] [API] CFC patient-portal OUTBOUND getPatientDetails v1 GET /api/v1/patients/P123456 doctor@lilly.com 203.0.113.88 data-service 200 SUCCESS 512 1024 85 
+2026-03-09 17:44:24.183 [AUDIT] [API] CFC patient-portal OUTBOUND updatePatientRecord v1 PUT /api/v1/patients/P123456 doctor@lilly.com 203.0.113.88 data-service 200 SUCCESS 1024 2048 250 
+2026-03-09 17:44:39.183 [AUDIT] [EndUser] CFC patient-portal doctor@lilly.com 203.0.113.88 VIEW patient_record_P123456 SUCCESS 
+2026-03-09 17:45:39.183 [AUDIT] [EndUser] CFC patient-portal doctor@lilly.com 203.0.113.88 UPDATE patient_medications SUCCESS 
+2026-03-09 17:46:39.183 [AUDIT] [EndUser] CFC patient-portal doctor@lilly.com 203.0.113.88 EXPORT patient_report SUCCESS 

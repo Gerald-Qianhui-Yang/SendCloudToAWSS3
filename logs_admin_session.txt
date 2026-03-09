@@ -1,0 +1,4 @@
+2026-03-09 17:43:39.184 [AUDIT] [Login] CFC admin-console admin@lilly.com 192.168.1.1 Azure_AD SUCCESS  admin-sess-20260309174339
+2026-03-09 17:43:49.184 [AUDIT] [MACD] CFC admin-console admin@lilly.com 192.168.1.1 ADD User new_user@lilly.com  Doctor role in CFC platform SUCCESS New doctor onboarded
+2026-03-09 17:44:09.184 [AUDIT] [MACD] CFC admin-console admin@lilly.com 192.168.1.1 CHANGE Role viewer-role read-only access read-only + export access SUCCESS Permissions update for auditors
+2026-03-09 17:44:29.184 [AUDIT] [MACD] CFC admin-console admin@lilly.com 192.168.1.1 CHANGE Configuration session-timeout 15 minutes 30 minutes SUCCESS User feedback - reduce timeouts

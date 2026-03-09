@@ -1,0 +1,5 @@
+2026-03-09 17:43:39.184 [AUDIT] [API] CFC data-service INBOUND searchPatients v2 POST /api/v2/patients/search his_integration@partner.com 198.51.100.50 HIS-System 200 SUCCESS 512 2048 145 
+2026-03-09 17:43:54.184 [AUDIT] [API] CFC data-service INBOUND getPatientMedications v2 GET /api/v2/patients/P123456/medications his_integration@partner.com 198.51.100.50 HIS-System 200 SUCCESS 256 1024 89 
+2026-03-09 17:44:09.184 [AUDIT] [API] CFC integration-service OUTBOUND createOrder v1 POST /api/v1/orders app-integration@lilly.com 192.168.1.50 ERP-System 201 SUCCESS 1024 512 320 
+2026-03-09 17:44:24.184 [AUDIT] [API] CFC integration-service OUTBOUND updateOrderStatus v1 PATCH /api/v1/orders/ORD-2024-001 app-integration@lilly.com 192.168.1.50 ERP-System 200 SUCCESS 256 384 215 
+2026-03-09 17:44:39.184 [AUDIT] [API] CFC data-service OUTBOUND syncDatabase v1 POST /api/v1/sync batch_job@lilly.com 192.168.1.100 backup-service 500 ERROR 2048 128 5000 Database connection timeout after 5 seconds
